@@ -1,0 +1,78 @@
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 21.0"
+
+  name               = var.clustername
+  kubernetes_version = var.kubernetes_version
+
+
+  vpc_id     = var.vpc_id
+  subnet_ids = var.private_subnets_ids
+
+  endpoint_private_access      = true
+  endpoint_public_access       = true
+  endpoint_public_access_cidrs = var.endpoint_public_access_cidrs
+
+  enable_irsa = true
+
+  access_entries = {
+    eks_admin = {
+      principal_arn = var.eks_admin_role_arn
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  }
+  addons = {
+    coredns = {}
+    eks-pod-identity-agent = {
+      before_compute = true
+    }
+    kube-proxy = {
+    }
+    vpc-cni = {
+      before_compute = true
+    }
+  }
+  eks_managed_node_groups = {
+    main = {
+      name = "${var.clustername}-ng"
+
+      instance_types = var.node_group_config.instance_types
+      ami_type       = var.node_group_config.ami_type
+
+      min_size     = var.node_group_config.min_size
+      max_size     = var.node_group_config.max_size
+      desired_size = var.node_group_config.desired_size
+
+      # Enable cluster autoscaler tags
+      tags = merge(var.tags, {
+        "k8s.io/cluster-autoscaler/enabled"            = "true"
+        "k8s.io/cluster-autoscaler/${var.clustername}" = "owned"
+      })
+    }
+  }
+
+  tags = var.tags
+}
+
+resource "local_file" "cluster_autoscaler_yaml" {
+  content = templatefile("${path.module}/cluster-autoscaler.yaml.tpl", {
+    cluster_name                = var.clustername
+    cluster_autoscaler_role_arn = var.cluster_autoscaler_role_arn
+    aws_region                  = data.aws_region.current.name
+  })
+  filename = "${path.module}/cluster-autoscaler.yaml"
+}
+
+data "aws_region" "current" {}
+
+
+
+
+
