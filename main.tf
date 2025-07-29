@@ -18,58 +18,55 @@ module "vpc" {
   clustername                = var.clustername
 }
 
-module "iam-roles" {
-  source      = "./modules/iam-roles"
-  clustername = var.clustername
 
-  oidc_providers = {
-    eks = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:cluster-autoscaler"]
-    }
-  }
-  tags       = var.common_tags
-  depends_on = [module.eks]
-
-}
 module "eks" {
   source = "./modules/eks"
 
-  clustername                  = var.clustername
-  kubernetes_version           = var.kubernetes_version
-
-  vpc_id                       = module.vpc.vpc_id
+  clustername        = var.clustername
+  kubernetes_version = var.kubernetes_version
+  vpc_id             = module.vpc.vpc_id
   private_subnets_ids          = module.vpc.private_subnet_ids
   endpoint_public_access_cidrs = var.endpoint_public_access_cidrs
-
-  eks_admin_role_arn          = module.iam-roles.eks_admin_role_arn
-  cluster_autoscaler_role_arn = module.iam-roles.cluster_autoscaler_role_arn
-
-  node_group_config           = var.node_group_config
-
-  tags                        = var.common_tags
-
+  node_group_config            = var.node_group_config
+  tags = var.common_tags
 }
 
 module "bastion_host" {
   source = "./modules/bastion_host"
 
-  clustername         = var.clustername
-  vpc_id              = module.vpc.vpc_id
-  public_subnet_id    = module.vpc.public_subnet_ids[0]
-  private_subnets_ids = module.vpc.private_subnet_ids
+  vpc_id                        = module.vpc.vpc_id
+  public_subnet_id              = module.vpc.public_subnet_ids[0]
+  private_subnet_ids            = module.vpc.private_subnet_ids
+  cluster_name                  = module.eks.clustername
+  eks_cluster_name              = module.eks.clustername
+  bastion_instance_type         = var.bastion_instance_type
+  key_pair_name                 = var.key_pair_name
+  allowed_cidr_blocks           = var.bastion_allowed_cidr_blocks
+  eks_cluster_endpoint          = module.eks.cluster_endpoint
+  eks_admin_user_credentials    = module.eks.eks_admin_access_key
+  eks_admin_instance_profile_name = module.eks.eks_admin_instance_profile_name
+  cluster_autoscaler_yaml_content = module.eks.cluster_autoscaler_yaml_content
+  tags                          = var.common_tags
+  depends_on = [module.eks]
 
-  bastion_instance_type           = var.bastion_instance_type
-  key_pair_name                   = var.key_pair_name
-  allowed_cidr_blocks             = var.bastion_allowed_cidr_blocks
+}
+resource "aws_security_group_rule" "bastion_to_eks" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.eks.cluster_security_group_id
+  security_group_id        = module.bastion_host.bastion_security_group_id
+  description              = "Allow bastion to communicate with EKS cluster"
+}
 
-  eks_cluster_name                = module.eks.clustername
-  eks_cluster_endpoint            = module.eks.cluster_endpoint
-  eks_admin_user_credentials      = module.eks.eks_admin_user_credentials
-  eks_admin_instance_profile_name = module.iam-roles.eks_admin_instance_profile_name
-
-  tags                            = var.common_tags
-  
-  depends_on                      = [module.iam-roles, module.eks]
-
+# Security group rule to allow EKS cluster to receive from bastion
+resource "aws_security_group_rule" "eks_from_bastion" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.bastion_host.bastion_security_group_id
+  security_group_id        = module.eks.cluster_security_group_id
+  description              = "Allow bastion host access to EKS cluster"
 }

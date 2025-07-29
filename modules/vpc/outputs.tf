@@ -7,6 +7,3 @@ output "private_subnet_ids" {
 output "public_subnet_ids" {
   value = module.myapp-vpc.public_subnets
 }
-output "nat_gateway_ids" {
-  value = module.myapp-vpc.nat_gateway_ids
-}

@@ -65,7 +65,7 @@ spec:
       volumes:
         - name: ssl-certs
           hostPath:
-            path: "/etc/ssl/certs/ca-certificates.crt"
+            path: "/etc/ssl/certs/ca-bundle.crt"
 ---
 apiVersion: v1
 kind: ServiceAccount

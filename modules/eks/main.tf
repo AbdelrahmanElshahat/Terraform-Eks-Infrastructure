@@ -15,19 +15,34 @@ module "eks" {
 
   enable_irsa = true
 
-  access_entries = {
-    eks_admin = {
-      principal_arn = var.eks_admin_role_arn
-      policy_associations = {
-        admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
+access_entries = {
+  # Keep the existing role entry with the same name
+  eks_admin = {
+    principal_arn = aws_iam_role.eks_admin_role.arn
+    policy_associations = {
+      admin = {
+        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+        access_scope = {
+          type = "cluster"
         }
       }
     }
   }
+  
+  # Add the IAM user entry
+  eks_admin_user = {
+    principal_arn = aws_iam_user.eks_admin.arn
+    policy_associations = {
+      admin = {
+        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+        access_scope = {
+          type = "cluster"
+        }
+      }
+    }
+  }
+}
+  
   addons = {
     coredns = {}
     eks-pod-identity-agent = {
@@ -41,7 +56,7 @@ module "eks" {
   }
   eks_managed_node_groups = {
     main = {
-      name = "${var.clustername}-ng"
+      name = "main-ng"
 
       instance_types = var.node_group_config.instance_types
       ami_type       = var.node_group_config.ami_type
@@ -64,12 +79,28 @@ module "eks" {
 resource "local_file" "cluster_autoscaler_yaml" {
   content = templatefile("${path.module}/cluster-autoscaler.yaml.tpl", {
     cluster_name                = var.clustername
-    cluster_autoscaler_role_arn = var.cluster_autoscaler_role_arn
+    cluster_autoscaler_role_arn = module.cluster_autoscaler_irsa_role.iam_role_arn
     aws_region                  = data.aws_region.current.name
   })
   filename = "${path.module}/cluster-autoscaler.yaml"
 }
+module "cluster_autoscaler_irsa_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.0"
 
+  role_name                        = "${var.clustername}-cluster-autoscaler"
+  attach_cluster_autoscaler_policy = true
+  cluster_autoscaler_cluster_names = [var.clustername]
+
+ oidc_providers = {
+    eks = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:cluster-autoscaler"]
+    }
+  }
+
+  tags = var.tags
+}
 data "aws_region" "current" {}
 
 

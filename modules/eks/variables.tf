@@ -18,15 +18,7 @@ variable "endpoint_public_access_cidrs" {
   description = "CIDRs for public access to the EKS cluster endpoint"
   type        = list(string)
 }
-variable "eks_admin_role_arn" {
-  description = "ARN of the IAM role for EKS admin access"
-  type        = string
-}
-variable "cluster_autoscaler_role_arn" {
-  description = "ARN of the IAM role for cluster autoscaler"
-  type        = string
-  
-}
+// Removed eks_admin_role_arn and cluster_autoscaler_role_arn variables. IAM resources are now created inside the module.
 variable "node_group_config" {
   description = "Configuration for the EKS managed node group"
   type = object({
@@ -51,3 +43,8 @@ variable "oidc_providers" {
   }))
   default     = {}
 }
+
+/*variable "cluster_autoscaler_role_arn" {
+  description = "ARN of the cluster autoscaler IAM role"
+  type        = string
+}*/

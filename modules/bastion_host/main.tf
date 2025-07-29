@@ -1,4 +1,4 @@
-data "aws_ami" "amazon_linux_2" {
+data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
 
@@ -9,7 +9,7 @@ data "aws_ami" "amazon_linux_2" {
 
 }
 resource "aws_security_group" "bastion" {
-  name_prefix = "${var.clustername}-bastion-"
+  name_prefix = "${var.cluster_name}-bastion-"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -28,20 +28,22 @@ resource "aws_security_group" "bastion" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.clustername}-bastion-sg"
+    Name = "${var.cluster_name}-bastion-sg"
   })
 }
+
 locals {
   user_data = templatefile("${path.module}/user_data.sh", {
-    cluster_name      = var.eks_cluster_name
-    cluster_endpoint  = var.eks_cluster_endpoint
-    aws_region        = data.aws_region.current.name
-    access_key_id     = var.eks_admin_user_credentials.access_key_id
-    secret_access_key = var.eks_admin_user_credentials.secret_access_key
+    cluster_name          = var.eks_cluster_name
+    cluster_endpoint      = var.eks_cluster_endpoint
+    aws_region           = data.aws_region.current.name
+    access_key_id        = var.eks_admin_user_credentials.access_key_id
+    secret_access_key    = var.eks_admin_user_credentials.secret_access_key
+    cluster_autoscaler_yaml_content = var.cluster_autoscaler_yaml_content
   })
 }
 resource "aws_instance" "bastion" {
-  ami           = data.aws_ami.amazon_linux_2.id
+  ami           = data.aws_ami.amazon_linux.id
   instance_type = var.bastion_instance_type
   key_name      = var.key_pair_name
 
@@ -50,9 +52,10 @@ resource "aws_instance" "bastion" {
 
   iam_instance_profile = var.eks_admin_instance_profile_name
 
-  user_data = base64encode(local.user_data)
+  user_data_base64 = base64encode(local.user_data)
+  associate_public_ip_address = true
   tags = merge(var.tags, {
-    Name = "${var.clustername}-bastion"
+    Name = "${var.cluster_name}-bastion"
     type = "bastion"
   })
 }
