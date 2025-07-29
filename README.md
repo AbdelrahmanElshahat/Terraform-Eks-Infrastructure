@@ -119,8 +119,8 @@ This repository provides a **modular Terraform setup** for deploying a productio
 ### 1. 📥 Clone and Setup
 
 ```bash
-git clone <your-repo>
-cd eks-infrastructure
+git clone https://github.com/AbdelrahmanElshahat/Terraform-Eks-Infrastructure.git
+cd Terraform-Eks-Infrastructure
 ```
 
 ### 2. ⚙️ Configure Variables
