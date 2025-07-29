@@ -14,16 +14,16 @@ module "myapp-vpc" {
   enable_dns_hostnames = true
 
     tags = {
-        "kubernetes.io/cluster/${var.clustername}-cluster" = "shared"
+        "kubernetes.io/cluster/${var.clustername}" = "shared"
     }
 
     public_subnet_tags = {
-        "kubernetes.io/cluster/${var.clustername}-cluster" = "shared"
+        "kubernetes.io/cluster/${var.clustername}" = "shared"
         "kubernetes.io/role/elb" = 1
     }
 
     private_subnet_tags = {
-        "kubernetes.io/cluster/${var.clustername}-cluster" = "shared"
+        "kubernetes.io/cluster/${var.clustername}" = "shared"
         "kubernetes.io/role/internal-elb" = 1
     }
 
